@@ -68,12 +68,12 @@ const Sidebar: FC<ISidebarProps> = ({
 
   return (
     <div
-      className="shrink-0 flex flex-col overflow-y-hidden bg-gray-100 pc:w-[244px] tablet:w-[192px] mobile:w-[240px] h-screen"
+      className="shrink-0 flex flex-col bg-gray-100 pc:w-[244px] tablet:w-[192px] mobile:w-[240px] h-screen relative z-20"
     >
       {/* Top Icons Section */}
       <div className="p-2 flex justify-between items-center">
         <div
-          className={`p-2 cursor-pointer text-gray-700 hover:bg-gray-200 rounded-md ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={'p-2 cursor-pointer text-gray-700 hover:bg-gray-200 rounded-md'}
           onClick={() => {
             // Placeholder for sidebar_left action if any, or just an icon
             console.log('Sidebar left icon clicked')
@@ -85,7 +85,7 @@ const Sidebar: FC<ISidebarProps> = ({
           </svg>
         </div>
         <div
-          className={`p-2 cursor-pointer text-gray-700 hover:bg-gray-200 rounded-md ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`p-2 text-gray-700 rounded-md ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-200'}`}
           onClick={() => {
             if (!isDisabled) {
               onCurrentIdChange('-1')
@@ -147,10 +147,9 @@ const Sidebar: FC<ISidebarProps> = ({
       <div className="relative p-2 flex justify-between items-center">
         <div
           ref={optionIconRef}
-          className={`p-2 cursor-pointer text-gray-700 hover:bg-gray-200 rounded-md ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={'p-2 cursor-pointer text-gray-700 hover:bg-gray-200 rounded-md'}
           onClick={() => {
-            if (!isDisabled)
-              handleToggleOptions()
+            handleToggleOptions()
           }}
           title="Options"
         >
