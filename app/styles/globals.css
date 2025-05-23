@@ -36,6 +36,9 @@
   --callout-border-rgb: 172, 175, 176;
   --card-rgb: 180, 185, 188;
   --card-border-rgb: 131, 134, 135;
+
+  /* Sidebar mask for fade-out effect on long text */
+  --sidebar-mask: linear-gradient(to left, transparent, black 20px);
 }
 
 /* @media (prefers-color-scheme: dark) {

@@ -1,6 +1,6 @@
 'use client'
 import type { FC } from 'react'
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import cn from 'classnames'
 import { useTranslation } from 'react-i18next'
 import Textarea from 'rc-textarea'
@@ -8,13 +8,79 @@ import s from './style.module.css'
 import Answer from './answer'
 import Question from './question'
 import type { FeedbackFunc } from './type'
-import type { ChatItem, VisionFile, VisionSettings } from '@/types/app'
+import type { ChatItem, PromptConfig, VisionFile, VisionSettings } from '@/types/app'
 import { TransferMethod } from '@/types/app'
 import Tooltip from '@/app/components/base/tooltip'
 import Toast from '@/app/components/base/toast'
 import ChatImageUploader from '@/app/components/base/image-uploader/chat-image-uploader'
 import ImageList from '@/app/components/base/image-uploader/image-list'
 import { useImageFiles } from '@/app/components/base/image-uploader/hooks'
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/20/solid'
+
+// 自定义模型选择器组件
+const ModelSelector: FC<{
+  options: string[]
+  value: string
+  onChange: (value: string) => void
+}> = ({ options, value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false)
+
+  const toggleDropdown = () => {
+    setIsOpen(!isOpen)
+  }
+
+  const handleSelect = (option: string) => {
+    onChange(option)
+    setIsOpen(false)
+  }
+
+  // 点击外部关闭下拉菜单
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      setIsOpen(false)
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  return (
+    <div className="relative w-[140px]" ref={dropdownRef}>
+      <button
+        onClick={toggleDropdown}
+        className="flex items-center justify-between w-full px-3 py-1.5 text-sm rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+      >
+        <span className="truncate">{value}</span>
+        {isOpen ?
+          <ChevronUpIcon className="h-5 w-5 text-gray-500" /> :
+          <ChevronDownIcon className="h-5 w-5 text-gray-500" />
+        }
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-10 bottom-full mb-1 w-full px-1 max-h-60 overflow-auto rounded-md bg-white py-1 text-base shadow-lg border-gray-200 border-[0.5px]">
+          {options.map((option) => (
+            <div
+              key={option}
+              className={`px-3 py-2 text-sm cursor-pointer rounded-lg hover:bg-gray-100 ${option === value ? 'font-medium' : ''
+                }`}
+              onClick={() => handleSelect(option)}
+            >
+              {option}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export type IChatProps = {
   chatList: ChatItem[]
@@ -28,11 +94,14 @@ export type IChatProps = {
   isHideSendInput?: boolean
   onFeedback?: FeedbackFunc
   checkCanSend?: () => boolean
-  onSend?: (message: string, files: VisionFile[]) => void
+  onSend?: (message: string, files: VisionFile[], modelValue?: string) => void
   useCurrentUserAvatar?: boolean
   isResponding?: boolean
   controlClearQuery?: number
   visionConfig?: VisionSettings
+  promptConfig?: PromptConfig
+  defaultModelValue?: string
+  onModelValueChange?: (value: string) => void
 }
 
 const Chat: FC<IChatProps> = ({
@@ -46,15 +115,26 @@ const Chat: FC<IChatProps> = ({
   isResponding,
   controlClearQuery,
   visionConfig,
+  promptConfig,
+  defaultModelValue = '',
+  onModelValueChange,
 }) => {
   const { t } = useTranslation()
   const { notify } = Toast
   const isUseInputMethod = useRef(false)
 
   const [query, setQuery] = React.useState('')
+  const [modelValue, setModelValue] = useState(defaultModelValue)
+
   const handleContentChange = (e: any) => {
     const value = e.target.value
     setQuery(value)
+  }
+
+  const handleModelChange = (value: string) => {
+    setModelValue(value)
+    if (onModelValueChange)
+      onModelValueChange(value)
   }
 
   const logError = (message: string) => {
@@ -73,6 +153,12 @@ const Chat: FC<IChatProps> = ({
     if (controlClearQuery)
       setQuery('')
   }, [controlClearQuery])
+
+  useEffect(() => {
+    if (defaultModelValue)
+      setModelValue(defaultModelValue)
+  }, [defaultModelValue])
+
   const {
     files,
     onUpload,
@@ -91,7 +177,7 @@ const Chat: FC<IChatProps> = ({
       transfer_method: fileItem.type,
       url: fileItem.url,
       upload_file_id: fileItem.fileId,
-    })))
+    })), modelValue)
     if (!files.find(item => item.type === TransferMethod.local_file && !item.fileId)) {
       if (files.length)
         onClear()
@@ -116,6 +202,10 @@ const Chat: FC<IChatProps> = ({
       e.preventDefault()
     }
   }
+
+  // 查找模型选择变量
+  const modelSelectVar = promptConfig?.prompt_variables.find(item => item.type === 'select')
+  const modelOptions = modelSelectVar?.options || []
 
   return (
     <div className={cn(!feedbackDisabled && 'px-3.5', 'h-full')}>
@@ -172,7 +262,7 @@ const Chat: FC<IChatProps> = ({
               }
               <Textarea
                 className={`
-                  block w-full px-2 pr-[118px] py-[7px] leading-5 max-h-none text-sm text-gray-700 outline-none appearance-none resize-none
+                  block w-full px-2 pr-[182px] py-[7px] leading-5 max-h-none text-sm text-gray-700 outline-none appearance-none resize-none
                   ${visionConfig?.enabled && 'pl-12'}
                 `}
                 value={query}
@@ -182,6 +272,15 @@ const Chat: FC<IChatProps> = ({
                 autoSize
               />
               <div className="absolute bottom-2 right-2 flex items-center h-8">
+                {modelOptions.length > 0 && (
+                  <div className='mr-2'>
+                    <ModelSelector
+                      options={modelOptions}
+                      value={modelValue}
+                      onChange={handleModelChange}
+                    />
+                  </div>
+                )}
                 <div className={`${s.count} mr-4 h-5 leading-5 text-sm bg-gray-50 text-gray-500`}>{query.trim().length}</div>
                 <Tooltip
                   selector='send-tip'
